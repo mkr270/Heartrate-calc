@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Heart Rate Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for the app */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: #333;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 2.5rem;
+            border-radius: 1.5rem;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 90%;
+            width: 480px;
+            box-sizing: border-box;
+            border: 1px solid #e2e8f0;
+        }
+        .bpm-display {
+            font-size: 5rem; /* Large font size for BPM */
+            font-weight: 700;
+            color: #ef4444; /* Red color for emphasis */
+            margin-top: 1.5rem;
+            margin-bottom: 2rem;
+            line-height: 1;
+        }
+        .instructions {
+            font-size: 1.125rem;
+            color: #64748b;
+            margin-bottom: 2rem;
+        }
+        .btn {
+            padding: 0.8rem 1.8rem;
+            border-radius: 0.75rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            border: none;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary {
+            background-color: #4f46e5; /* Indigo */
+            color: #ffffff;
+        }
+        .btn-primary:hover {
+            background-color: #4338ca; /* Darker Indigo */
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+        }
+        .btn-secondary {
+            background-color: #f87171; /* Light red for reset */
+            color: #ffffff;
+            margin-left: 1rem;
+        }
+        .btn-secondary:hover {
+            background-color: #ef4444; /* Darker red */
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+        }
+        /* Message box for alerts */
+        #messageBox {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            z-index: 1000;
+            display: none;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-bold mb-4 text-gray-800">Heart Rate Calculator</h1>
+        <p class="instructions">Press the <span class="font-semibold text-indigo-600">Spacebar</span> every time you feel a beat.</p>
+        <div class="bpm-display" id="bpmDisplay">0 BPM</div>
+        <button id="resetButton" class="btn btn-secondary">Reset</button>
+    </div>
+
+    <div id="messageBox"></div>
+
+    <script>
+        // Array to store timestamps of each spacebar press
+        let timestamps = [];
+        // Element to display the calculated BPM
+        const bpmDisplay = document.getElementById('bpmDisplay');
+        // Reset button element
+        const resetButton = document.getElementById('resetButton');
+        // Message box element for user feedback
+        const messageBox = document.getElementById('messageBox');
+
+        /**
+         * Displays a temporary message to the user.
+         * @param {string} message - The message to display.
+         * @param {number} duration - How long the message should be visible in milliseconds.
+         */
+        function showMessage(message, duration = 2000) {
+            messageBox.textContent = message;
+            messageBox.style.display = 'block';
+            setTimeout(() => {
+                messageBox.style.display = 'none';
+            }, duration);
+        }
+
+        /**
+         * Calculates the BPM based on the stored timestamps.
+         * BPM = 60000 milliseconds / average time between beats.
+         */
+        function calculateBPM() {
+            // Need at least two timestamps to calculate a duration between beats
+            if (timestamps.length < 2) {
+                bpmDisplay.textContent = '0 BPM';
+                return;
+            }
+
+            let totalDuration = 0;
+            // Iterate through timestamps to sum up differences between consecutive beats
+            for (let i = 1; i < timestamps.length; i++) {
+                totalDuration += (timestamps[i] - timestamps[i - 1]);
+            }
+
+            // Calculate the average duration between beats
+            const averageDuration = totalDuration / (timestamps.length - 1);
+
+            // Calculate BPM: (milliseconds in a minute) / (average duration per beat)
+            const bpm = 60000 / averageDuration;
+
+            // Update the display with the calculated BPM, rounded to one decimal place
+            bpmDisplay.textContent = `${Math.round(bpm)} BPM`; // Round to nearest whole number for simplicity
+        }
+
+        /**
+         * Resets the calculator, clearing all timestamps and resetting the display.
+         */
+        function resetCalculator() {
+            timestamps = []; // Clear the array of timestamps
+            bpmDisplay.textContent = '0 BPM'; // Reset the display
+            showMessage('Calculator reset!', 1500);
+        }
+
+        // Event listener for keydown events across the document
+        document.addEventListener('keydown', (event) => {
+            // Check if the pressed key is the spacebar
+            if (event.code === 'Space') {
+                event.preventDefault(); // Prevent default spacebar action (e.g., scrolling)
+                const currentTime = Date.now(); // Get the current time in milliseconds
+
+                // If it's the very first beat, just record the timestamp
+                if (timestamps.length === 0) {
+                    timestamps.push(currentTime);
+                    showMessage('First beat recorded!', 1500);
+                } else {
+                    // Check if the last recorded beat was too recent (e.g., within 100ms)
+                    // This helps to filter out accidental double presses.
+                    const lastTimestamp = timestamps[timestamps.length - 1];
+                    if (currentTime - lastTimestamp < 100) {
+                        // Ignore very rapid presses, consider it a single beat
+                        return;
+                    }
+                    timestamps.push(currentTime); // Add the new timestamp
+                    // Keep only the last few timestamps to calculate BPM based on recent beats
+                    // This makes the BPM display more responsive to current heart rate.
+                    if (timestamps.length > 10) { // Keep last 10 beats for calculation
+                        timestamps.shift(); // Remove the oldest timestamp
+                    }
+                }
+                calculateBPM(); // Recalculate BPM after each press
+            }
+        });
+
+        // Event listener for the reset button click
+        resetButton.addEventListener('click', resetCalculator);
+
+        // Initial setup on window load to ensure all elements are ready
+        window.onload = function() {
+            console.log("Heart Rate Calculator loaded and ready!");
+            // You can add any initial messages or setup here if needed
+        };
+    </script>
+</body>
+</html>
